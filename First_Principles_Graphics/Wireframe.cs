@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.IO;
-using System.Security.Permissions;
+using System.Linq;
+using System.Reflection.Metadata;
 using System.Security;
+using System.Security.Permissions;
+using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace First_Principles_Graphics
 {
@@ -28,10 +29,24 @@ namespace First_Principles_Graphics
         private int focalLength = 500;
         private double scale = 100;
         private Coords3d offset = new Coords3d(0,0,0); //represents offset vector from center of screen
-        
+
+        //faces
+        private bool hasFaceInfo;
+        private List<List<int>> faces;
         public Wireframe(string path)
         {
-            string[] lines = File.ReadAllLines(path);
+            string[] lines;
+            try
+            {
+                lines = File.ReadAllLines(path);
+            }
+            catch(Exception e)
+            {
+                MessageBox.Show($"Error Loading Wireframe File: {e}");
+                string fallBackPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wireframefiles", "cube.txt");
+                lines = File.ReadAllLines(fallBackPath);
+            }
+
             name = lines[0];
             //load vertices and edges into respective lists
             int lineNum = 1;
@@ -108,15 +123,16 @@ namespace First_Principles_Graphics
             projectedVertices.Clear();
             int u;
             int v;
+            double angle = Math.PI / 4;
 
-            foreach(Coords3d vertex in vertices)
+            foreach (Coords3d vertex in vertices)
             {
                 double x = vertex.GetX();
                 double y = vertex.GetY();
                 double z = vertex.GetZ();
 
-                u = Convert.ToInt16(x+(z*zCoefficient)); 
-                v = Convert.ToInt16(y+(z*zCoefficient));
+                u = Convert.ToInt16(x + z * zCoefficient * Math.Cos(angle));
+                v = Convert.ToInt16(y + z * zCoefficient * Math.Sin(angle));
                 Point p = new Point(u, v);
                 projectedVertices.Add(p);
             }

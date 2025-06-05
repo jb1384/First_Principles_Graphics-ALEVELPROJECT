@@ -8,6 +8,10 @@ namespace First_Principles_Graphics
         const int xsize = 1280;
         const int ysize = 720;
 
+        //hub variables
+        private Font hudFont = new Font("Arial", 12);
+        private Brush hudBrushColor = Brushes.Black;
+
         private Wireframe model;
         private Size size = new Size(xsize, ysize);
         private List<Point> points = new List<Point>();
@@ -19,6 +23,14 @@ namespace First_Principles_Graphics
         private int modeIndex = 0;
         private Func<double, List<Point>> projectionMethod;
         private double zCoefficient = 0;
+
+        //variables for handling random spinning
+        private System.Windows.Forms.Timer spinTimer;
+        private System.Windows.Forms.Timer ChangeSpinAxisTimer;
+        private Action<int> SpinAxisProc;
+        private Random rnd = new Random();
+        private bool RandomSpinMode = false;
+
         public Screen()
         {
             //set up size
@@ -35,7 +47,7 @@ namespace First_Principles_Graphics
             reset.Text = "Reset";
             reset.Size = new Size(150, 60);
             reset.Location = new Point(1120, 10);
-            reset.Click += new EventHandler(this.Reset_Click);
+            reset.Click += new EventHandler(this.ResetClick);
             this.Controls.Add(reset);
 
             Button ChangeModel = new Button();
@@ -49,10 +61,17 @@ namespace First_Principles_Graphics
             toggleProjection.Text = "Mode Toggle";
             toggleProjection.Size = new Size(150, 60);
             toggleProjection.Location = new Point(1120, 150);
-            toggleProjection.Click += new EventHandler(this.toggleProjection);
+            toggleProjection.Click += new EventHandler(this.ToggleProjection);
             this.Controls.Add(toggleProjection);
+
+            Button SpinRandomly = new Button();
+            SpinRandomly.Text = "Auto-Spin";
+            SpinRandomly.Size = new Size(150, 60);
+            SpinRandomly.Location = new Point(1120, 220);
+            SpinRandomly.Click += new EventHandler(this.SpinRandomly);
+            this.Controls.Add(SpinRandomly);
         }
-        private void Reset_Click(object sender, EventArgs e)
+        private void ResetClick(object sender, EventArgs e)
         {
             model.getThetaX().Set(0);
             model.getThetaY().Set(0);
@@ -78,17 +97,20 @@ namespace First_Principles_Graphics
                 string filePath = loader.path;
                 model = new Wireframe(filePath);
 
+                SpinAxisProc = model.getThetaX().Increment;
+                spinTimer.Stop();
+                ChangeSpinAxisTimer.Stop();
+
                 projectionMethod = model.ProjectVerticesPerspective;
                 zCoefficient = 0;
                 modeIndex = 0;
                 projectionMode = "perspective";
-
                 RefreshModel();
                 RefreshProjection();
                 Redraw();
             }
         }
-        private void toggleProjection(object sender, EventArgs e)
+        private void ToggleProjection(object sender, EventArgs e)
         {
             string[] modes = { "Perspective", "Orthographic", "Cabinet", "Cavalier" };
             modeIndex = (modeIndex + 1) % modes.Length;
@@ -115,6 +137,47 @@ namespace First_Principles_Graphics
             RefreshProjection();
             Redraw();
         }
+        private void SpinRandomly(object sender, EventArgs e)
+        {
+            RandomSpinMode = !RandomSpinMode;
+            ((Button)sender).Text = RandomSpinMode ? "Stop Spin" : "Auto-Spin";
+            if(RandomSpinMode)
+            {
+                spinTimer.Start();
+                ChangeSpinAxisTimer.Start();
+            }
+            else
+            {
+                spinTimer.Stop();
+                ChangeSpinAxisTimer.Stop();
+            }
+        }
+        private void ChangeSpinAxis(object sender, EventArgs e)
+        {
+            int next = rnd.Next(0, 3);
+            switch(next)
+            {
+                case 0:
+                    SpinAxisProc = model.getThetaX().Increment;
+                    break;
+                case 1:
+                    SpinAxisProc = model.getThetaY().Increment;
+                    break;
+                case 2:
+                    SpinAxisProc = model.getThetaZ().Increment;
+                    break;
+            }
+            ChangeSpinAxisTimer.Interval = rnd.Next(3000, 3500);
+        }
+        private void PerformRandomSpin(object sender, EventArgs e)
+        {
+            SpinAxisProc(2);
+
+            RefreshModel();
+            RefreshProjection();
+            Redraw();
+        }
+
         private void Draw_Lines(object sender, PaintEventArgs e)
         {
             Graphics g = e.Graphics;
@@ -129,45 +192,44 @@ namespace First_Principles_Graphics
 
              //draw HUD
              g.DrawString($"Wireframe Loaded: {model.getName()}",
-             new Font("Arial", 12),
-             Brushes.Black,
+             hudFont,
+             hudBrushColor,
              new PointF(10, 10));
 
              g.DrawString($"Projection Mode: {projectionMode}",
-             new Font("Arial", 12),
-             Brushes.Black,
+             hudFont,
+             hudBrushColor,
              new PointF(10, 35));
 
              g.DrawString($"Scale: {model.getScale()}",
-             new Font("Arial", 12),
-             Brushes.Black,
+             hudFont,
+             hudBrushColor,
              new PointF(10, 60));
 
              g.DrawString($"X Angle: {model.getThetaX().getDegreesSimplified()}",
-             new Font("Arial", 12),
-             Brushes.Black,
+             hudFont,
+             hudBrushColor,
              new PointF(10, 85));
 
              g.DrawString($"Y Angle: {model.getThetaY().getDegreesSimplified()}",
-             new Font("Arial", 12),
-             Brushes.Black,
+             hudFont,
+             hudBrushColor,
              new PointF(10, 110));
 
              g.DrawString($"Z Angle: {model.getThetaZ().getDegreesSimplified()}",
-             new Font("Arial", 12),
-             Brushes.Black,
+             hudFont,
+             hudBrushColor,
              new PointF(10, 135));
 
              g.DrawString($"X Offset: {model.getOffsetX()}",
-             new Font("Arial", 12),
-             Brushes.Black,
+             hudFont,
+             hudBrushColor,
              new PointF(10, 160));
 
              g.DrawString($"Y Offset: {model.getOffsetY()}",
-             new Font("Arial", 12),
-             Brushes.Black,
+             hudFont,
+             hudBrushColor,
              new PointF(10, 185));
-
             }
         }
         private void Redraw()
@@ -176,7 +238,8 @@ namespace First_Principles_Graphics
         }
         private Wireframe LoadCube()
         {
-            Wireframe cube = new Wireframe(@"C:\Users\joshb\source\repos\First_Principles_Graphics\First_Principles_Graphics\wireframefiles\cube.txt");
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wireframefiles", "cube.txt");
+            Wireframe cube = new Wireframe(path);
             return cube;
         }
         private void RefreshModel() //recalcuate 3d points
@@ -226,6 +289,7 @@ namespace First_Principles_Graphics
                 case (Keys.V):
                     model.IncrementFocalLength(-5);
                     break;
+
                 //scale
                 case (Keys.N):
                     model.IncrementScale(1);
@@ -257,7 +321,16 @@ namespace First_Principles_Graphics
         private void Screen_Load(object sender, EventArgs e)
         {
             // Code to run when the form loads
+            spinTimer = new System.Windows.Forms.Timer();
+            spinTimer.Interval = 20; 
+            spinTimer.Tick += new EventHandler(PerformRandomSpin);
+
+            ChangeSpinAxisTimer = new System.Windows.Forms.Timer();
+            ChangeSpinAxisTimer.Interval = rnd.Next(3000, 3500);
+            ChangeSpinAxisTimer.Tick += new EventHandler(ChangeSpinAxis);
+
             model = LoadCube();
+            SpinAxisProc = model.getThetaX().Increment;
             projectionMethod = model.ProjectVerticesPerspective;
             RefreshModel();
             RefreshProjection();
