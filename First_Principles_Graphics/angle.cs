@@ -8,12 +8,12 @@ namespace First_Principles_Graphics
 {
     class Angle
     {
-        private int degrees;
+        private double degrees;
         public Angle(int theta)
         {
             degrees = theta;
         }
-        public int getDegrees()
+        public double getDegrees()
         {
             return degrees;
         }
@@ -22,17 +22,17 @@ namespace First_Principles_Graphics
             return ((float)degrees * (Math.PI)) / 180;
             ;
         }
-        public void Increment(int value)
+        public void Increment(double value)
         {
             degrees+= value;
         }
-        public void Set(int value)
+        public void Set(double value)
         {
             degrees = value;
         }
         public int getDegreesSimplified()
         {
-            return degrees % 360;
+            return (int)degrees % 360;
         }
     }
 }

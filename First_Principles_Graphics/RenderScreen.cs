@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.Contracts;
+using System.Threading.Channels;
 
 namespace First_Principles_Graphics
 {
@@ -7,6 +8,7 @@ namespace First_Principles_Graphics
     {
         const int xsize = 1280;
         const int ysize = 720;
+        private ViewerSettings settings = new ViewerSettings();
 
         //hub variables
         private Font hudFont = new Font("Arial", 12);
@@ -16,7 +18,6 @@ namespace First_Principles_Graphics
         private Size size = new Size(xsize, ysize);
         private List<Point> points = new List<Point>();
         private List<int[]> edges = new List<int[]>();
-        private int rotateSpeed = 5;
 
         //variables for handling dynamic projection technique changing
         private string projectionMode = "Perspective";
@@ -27,9 +28,15 @@ namespace First_Principles_Graphics
         //variables for handling random spinning
         private System.Windows.Forms.Timer spinTimer;
         private System.Windows.Forms.Timer ChangeSpinAxisTimer;
-        private Action<int> SpinAxisProc;
+        private Action<double> SpinAxisProc;
         private Random rnd = new Random();
         private bool RandomSpinMode = false;
+
+        //variables for handling inertia
+        private bool inertiaOn = false;
+        private double velRotX, velRotY, velRotZ, velEnlarge;
+
+        private System.Windows.Forms.Timer inertiaTimer;
 
         public Screen()
         {
@@ -50,26 +57,42 @@ namespace First_Principles_Graphics
             reset.Click += new EventHandler(this.ResetClick);
             this.Controls.Add(reset);
 
-            Button ChangeModel = new Button();
-            ChangeModel.Text = "Change Model";
-            ChangeModel.Size = new Size(150, 60);
-            ChangeModel.Location = new Point(1120, 80);
-            ChangeModel.Click += new EventHandler(this.ChangeModelScreen);
-            this.Controls.Add(ChangeModel);
-
             Button toggleProjection = new Button();
             toggleProjection.Text = "Mode Toggle";
             toggleProjection.Size = new Size(150, 60);
-            toggleProjection.Location = new Point(1120, 150);
+            toggleProjection.Location = new Point(1120, 80);
             toggleProjection.Click += new EventHandler(this.ToggleProjection);
             this.Controls.Add(toggleProjection);
 
             Button SpinRandomly = new Button();
             SpinRandomly.Text = "Auto-Spin";
             SpinRandomly.Size = new Size(150, 60);
-            SpinRandomly.Location = new Point(1120, 220);
+            SpinRandomly.Location = new Point(1120, 150);
             SpinRandomly.Click += new EventHandler(this.SpinRandomly);
             this.Controls.Add(SpinRandomly);
+
+            Button ToggleInertia = new Button();
+            ToggleInertia.Text = "Inertia On";
+            ToggleInertia.Size = new Size(150, 60);
+            ToggleInertia.Location = new Point(1120, 220);
+            ToggleInertia.Click += new EventHandler(this.ToggleInertia);
+            this.Controls.Add(ToggleInertia);
+
+            //menu buttons
+            Button ChangeModel = new Button();
+            ChangeModel.Text = "Change Model";
+            ChangeModel.Size = new Size(150, 60);
+            ChangeModel.Location = new Point(1120, 650);
+            ChangeModel.Click += new EventHandler(this.ChangeModelScreen);
+            this.Controls.Add(ChangeModel);
+
+            Button openSettings = new Button();
+            openSettings.Text = "Settings";
+            openSettings.Size = new Size(150, 60);
+            openSettings.Location = new Point(1120, 580);
+            openSettings.Click += new EventHandler(OpenSettingsClick);
+            this.Controls.Add(openSettings);
+
         }
         private void ResetClick(object sender, EventArgs e)
         {
@@ -86,6 +109,73 @@ namespace First_Principles_Graphics
             RefreshProjection();
             Redraw();
         }
+        private void OpenSettingsClick(object sender, EventArgs e)
+        {
+            SettingsForm sf = new SettingsForm(settings);
+            if (sf.ShowDialog() == DialogResult.OK)
+            {
+                // Refresh drawing using new settings
+                ApplySettings();
+                Redraw();
+            }
+        }
+        private void ApplySettings()
+        {
+            this.BackColor = settings.BackgroundColor;
+        }
+        private void ToggleInertia(object sender, EventArgs e)
+        {
+            inertiaOn = !inertiaOn;
+            ((Button)sender).Text = inertiaOn ? "Inertia Off" : "Inertia On";
+            velRotX = velRotY = velRotZ = velEnlarge = 0;
+            if (inertiaOn)
+                inertiaTimer.Start();
+            else
+                inertiaTimer.Stop();
+
+        }
+        private void ApplyInertia(Object sender, EventArgs e)
+        {
+
+            bool changed = false;
+            // X rotation velocity
+            if (Math.Abs(velRotX) > 0.01)
+            {
+                model.getThetaX().Increment(velRotX);
+                velRotX *= settings.inertiaFrictionFactor;
+                changed = true;
+            }
+
+            // Y rotation
+            if (Math.Abs(velRotY) > 0.01)
+            {
+                model.getThetaY().Increment(velRotY);
+                velRotY *= settings.inertiaFrictionFactor;
+                changed = true;
+            }
+
+            // Z rotation
+            if (Math.Abs(velRotZ) > 0.01)
+            {
+                model.getThetaZ().Increment(velRotZ);
+                velRotZ *= settings.inertiaFrictionFactor;
+                changed = true;
+            }
+            if(Math.Abs(velEnlarge) > 0.01)
+            {
+                model.IncrementScale(velEnlarge);
+                velEnlarge *= settings.inertiaFrictionEnlargement;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                RefreshModel();
+                RefreshProjection();
+                Redraw();
+            }
+        }
+
         private void ChangeModelScreen(object sender, EventArgs e)
         {
 
@@ -137,6 +227,7 @@ namespace First_Principles_Graphics
             RefreshProjection();
             Redraw();
         }
+
         private void SpinRandomly(object sender, EventArgs e)
         {
             RandomSpinMode = !RandomSpinMode;
@@ -181,7 +272,7 @@ namespace First_Principles_Graphics
         private void Draw_Lines(object sender, PaintEventArgs e)
         {
             Graphics g = e.Graphics;
-            using (Pen pen = new Pen(Color.Black, 1))
+            using (Pen pen = new Pen(settings.LineColor, 1))
             {
                 foreach (int[] edge in edges)
                 {
@@ -201,7 +292,7 @@ namespace First_Principles_Graphics
              hudBrushColor,
              new PointF(10, 35));
 
-             g.DrawString($"Scale: {model.getScale()}",
+             g.DrawString($"Scale: {(int)model.getScale()}",
              hudFont,
              hudBrushColor,
              new PointF(10, 60));
@@ -258,61 +349,55 @@ namespace First_Principles_Graphics
             points = model.GetProjectedVertices();
             edges = model.GetEdges();
         }
+        private double Accelerate(double velocity, double amount, double limit)
+        {
+            velocity += amount * (1 - velocity / settings.maxSpeed);
+            return Math.Max(Math.Min(velocity, limit), -limit);
+        }
+        private void ApplyMovement(ref double velocity, double accel, double limit, Action<double> increment)
+        {
+            if (inertiaOn)
+            {
+                velocity = Accelerate(velocity, accel, limit);
+                increment(velocity);
+            }
+            else
+            {
+                increment(accel > 0 ? settings.rotateSpeed : -settings.rotateSpeed);
+            }
+        }
+
         private void DetectKeyDown(object sender, KeyEventArgs e)
         {
+            double accelerationAmount = settings.accelerationAmount;
+            double maxSpeed = settings.maxSpeed;
+            double accelerationAmountEnlargement = settings.accelerationAmountEnlargement;
+            double maxSpeedEnlargement = settings.maxSpeedEnlargement;
             switch(e.KeyCode)
             {
-                //angles
-                case (Keys.W):
-                    model.getThetaX().Increment(-rotateSpeed);
-                    break;
-                case (Keys.S):
-                    model.getThetaX().Increment(rotateSpeed);
-                    break;
-                case (Keys.D):
-                    model.getThetaY().Increment(-rotateSpeed);
-                    break;
-                case (Keys.A):
-                    model.getThetaY().Increment(rotateSpeed);
-                    break;
-                case (Keys.Q):
-                    model.getThetaZ().Increment(-rotateSpeed);
-                    break;
-                case (Keys.E):
-                    model.getThetaZ().Increment(rotateSpeed);
-                    break;
-
-                //focal length
-                case (Keys.C):
-                    model.IncrementFocalLength(5);
-                    break;
-                case (Keys.V):
-                    model.IncrementFocalLength(-5);
-                    break;
+                //angles (note to self: ref keyword passes the velrotx by reference, meaning when its changed in function its changed in entire program.
+                case Keys.W: ApplyMovement(ref velRotX, -accelerationAmount, maxSpeed, model.getThetaX().Increment); break;
+                case Keys.S: ApplyMovement(ref velRotX, accelerationAmount, maxSpeed, model.getThetaX().Increment); break;
+                case Keys.A: ApplyMovement(ref velRotY, accelerationAmount, maxSpeed, model.getThetaY().Increment); break;
+                case Keys.D: ApplyMovement(ref velRotY, -accelerationAmount, maxSpeed, model.getThetaY().Increment); break;
+                case Keys.Q: ApplyMovement(ref velRotZ, -accelerationAmount, maxSpeed, model.getThetaZ().Increment); break;
+                case Keys.E: ApplyMovement(ref velRotZ, accelerationAmount, maxSpeed, model.getThetaZ().Increment); break;
 
                 //scale
-                case (Keys.N):
-                    model.IncrementScale(1);
-                    break;
-                case (Keys.M):
-                    model.IncrementScale(-1);
-                    break;
+                case (Keys.N): ApplyMovement(ref velEnlarge, accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale); break;
+                case (Keys.M): ApplyMovement(ref velEnlarge, -accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale); break;
+
+
+                //focal length
+                case (Keys.C): model.IncrementFocalLength(5); break;
+                case (Keys.V): model.IncrementFocalLength(-5); break;
 
                 //offset
-                case (Keys.D1):
-                    model.IncrementYOffset(-1);
-                    break;
-                case (Keys.D2):
-                    model.IncrementYOffset(1);
-                    break;
-                case (Keys.D3):
-                    model.IncrementXOffset(1);
-                    break;
-                case (Keys.D4):
-                    model.IncrementXOffset(-1);
-                    break;
-                default:
-                    break;
+                case (Keys.D1): model.IncrementYOffset(-1); break;
+                case (Keys.D2): model.IncrementYOffset(1); break;
+                case (Keys.D3): model.IncrementXOffset(1); break;
+                case (Keys.D4): model.IncrementXOffset(-1); break;
+                default: break;
             }
             RefreshModel();
             RefreshProjection();
@@ -328,6 +413,10 @@ namespace First_Principles_Graphics
             ChangeSpinAxisTimer = new System.Windows.Forms.Timer();
             ChangeSpinAxisTimer.Interval = rnd.Next(3000, 3500);
             ChangeSpinAxisTimer.Tick += new EventHandler(ChangeSpinAxis);
+
+            inertiaTimer = new System.Windows.Forms.Timer();
+            inertiaTimer.Interval = 16; 
+            inertiaTimer.Tick += new EventHandler(ApplyInertia);
 
             model = LoadCube();
             SpinAxisProc = model.getThetaX().Increment;
