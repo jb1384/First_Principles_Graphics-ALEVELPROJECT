@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
+using System.Windows.Forms.VisualStyles;
 
 namespace First_Principles_Graphics
 {
@@ -12,20 +13,36 @@ namespace First_Principles_Graphics
         private Button backgroundColorButton, lineColorButton;
 
         private NumericUpDown rotateSpeedNum;
+        private NumericUpDown OffsetSpeedNum;
+
         private NumericUpDown inertiaFrictionFactorNum;
         private NumericUpDown accelerationAmountNum;
         private NumericUpDown maxSpeedNum;
+
         private NumericUpDown inertiaFrictionEnlargementNum;
         private NumericUpDown accelerationAmountEnlargementNum;
         private NumericUpDown maxSpeedEnlargementNum;
+
+        private NumericUpDown inertiaFrictionOffsetNum;
+        private NumericUpDown accelerationOffsetNum;
+        private NumericUpDown maxSpeedOffsetNum;
 
         private Panel previewPanel;
         private float previewAngle = 0;
         private ToolTip toolTip;
 
-        public SettingsForm(ViewerSettings settings)
+        private Wireframe currentModelDuplicate;
+        private List<int[]> edges;
+        private List<Point> p;
+
+        public SettingsForm(ViewerSettings settings, string currentModelPath)
         {
             this.settings = settings;
+            currentModelDuplicate = new Wireframe(currentModelPath);
+            edges = currentModelDuplicate.GetEdges();
+            currentModelDuplicate.UpdateScale(30);
+            currentModelDuplicate.ApplyScale();
+
             toolTip = new ToolTip();
             InitializeComponent();
             StartPreviewTimer();
@@ -34,7 +51,7 @@ namespace First_Principles_Graphics
         private void InitializeComponent()
         {
             this.Text = "Viewer Settings";
-            this.Size = new Size(450, 650); // slightly smaller width
+            this.Size = new Size(450, 650); 
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
 
@@ -57,8 +74,7 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(backgroundColorButton);
             mainPanel.Controls.Add(lineColorButton);
 
-            // Preview panel (shorter and same width as buttons)
-            // Preview panel (shorter and same width as buttons)
+            // Preview panel
             Label previewLabel = new Label
             {
                 Text = "Rotation Preview",
@@ -66,12 +82,13 @@ namespace First_Principles_Graphics
                 AutoSize = true,
                 Margin = new Padding(0, 10, 0, 5)
             };
+
             mainPanel.Controls.Add(previewLabel);
 
             previewPanel = new Panel
             {
                 Width = 400,
-                Height = 120, // slightly smaller height
+                Height = 120, 
                 BackColor = settings.BackgroundColor,
                 BorderStyle = BorderStyle.FixedSingle,
                 Margin = new Padding(0, 0, 0, 10)
@@ -80,10 +97,13 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(previewPanel);
 
             // Normal Rotation section
-            mainPanel.Controls.Add(CreateSectionLabel("Normal Rotation"));
+            mainPanel.Controls.Add(CreateSectionLabel("Non-Inertia Values"));
             rotateSpeedNum = CreateNumericWithDescription("Rotate Speed", settings.rotateSpeed, 1, 500,
                 "Speed of rotation in degrees per tick", "How fast the wireframe rotates", 0, 1);
             mainPanel.Controls.Add(rotateSpeedNum.Parent);
+            OffsetSpeedNum = CreateNumericWithDescription("Offset speed", settings.offsetSpeed, 1, 500, "speed of linear offset", "how fast wireframe moves up/down or sideways", 0, 1);
+            mainPanel.Controls.Add(OffsetSpeedNum.Parent);
+            
 
             // Inertia Rotation section
             mainPanel.Controls.Add(CreateSectionLabel("Inertia Rotation"));
@@ -108,6 +128,18 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(inertiaFrictionEnlargementNum.Parent);
             mainPanel.Controls.Add(accelerationAmountEnlargementNum.Parent);
             mainPanel.Controls.Add(maxSpeedEnlargementNum.Parent);
+
+            // Inertia Offset section
+            mainPanel.Controls.Add(CreateSectionLabel("Inertia Offset"));
+            inertiaFrictionOffsetNum = CreateNumericWithDescription("Offset Friction", (decimal)settings.inertiaFrictionOffset, 0.01M, 1,
+                "Friction on offset", "How quickly offset slows down", 2, 0.01M);
+            accelerationOffsetNum = CreateNumericWithDescription("Offset Acceleration", (decimal)settings.accelerationAmountOffset, 0.01M, 10,
+                "Offset acceleration", "How quickly offset speeds up", 2, 0.01M);
+            maxSpeedOffsetNum = CreateNumericWithDescription("Offset Max Speed", (decimal)settings.maxSpeedOffset, 1, 200,
+                "Max offset speed", "Top speed of offset", 0, 1);
+            mainPanel.Controls.Add(inertiaFrictionOffsetNum.Parent);
+            mainPanel.Controls.Add(accelerationOffsetNum.Parent);
+            mainPanel.Controls.Add(maxSpeedOffsetNum.Parent);
 
             // OK/Cancel buttons
             FlowLayoutPanel buttonPanel = new FlowLayoutPanel
@@ -143,10 +175,9 @@ namespace First_Principles_Graphics
         private void StartPreviewTimer()
         {
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 50 };
+            //note to self: lambda expression. 
             timer.Tick += (s, e) =>
             {
-                previewAngle += (float)rotateSpeedNum.Value;
-                if (previewAngle > 360) previewAngle -= 360;
                 previewPanel.Invalidate();
             };
             timer.Start();
@@ -155,20 +186,26 @@ namespace First_Principles_Graphics
         private void PreviewPanel_Paint(object sender, PaintEventArgs e)
         {
             e.Graphics.Clear(settings.BackgroundColor);
+            currentModelDuplicate.ResetVertices();
 
-            using (Pen pen = new Pen(settings.LineColor, 2))
+            currentModelDuplicate.getThetaX().Increment((double)rotateSpeedNum.Value);
+            currentModelDuplicate.getThetaY().Increment((double)rotateSpeedNum.Value);
+
+            currentModelDuplicate.RotateX();
+            currentModelDuplicate.RotateY();
+
+            currentModelDuplicate.ProjectVerticesPerspective(0);
+            currentModelDuplicate.FormatVerticesToScreenSize(previewPanel.Width, previewPanel.Height);
+            p = currentModelDuplicate.GetProjectedVertices();
+
+            using (Pen pen = new Pen(settings.LineColor, 1))
             {
-                Point center = new Point(previewPanel.Width / 2, previewPanel.Height / 2);
-                // shorten line to fit panel width
-                float length = 180; // leave margin, fits under buttons
-
-                float angleRad = previewAngle * (float)Math.PI / 180f;
-                Point end = new Point(
-                    center.X + (int)(length * Math.Cos(angleRad)),
-                    center.Y + (int)(length * Math.Sin(angleRad))
-                );
-
-                e.Graphics.DrawLine(pen, center, end);
+                foreach (int[] edge in edges)
+                {
+                    Point A = p[edge[0]];
+                    Point B = p[edge[1]];
+                    e.Graphics.DrawLine(pen, A, B);
+                }
             }
         }
 
@@ -191,7 +228,7 @@ namespace First_Principles_Graphics
 
         private Color GetReadableTextColor(Color bg)
         {
-            double luminance = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255;
+            double luminance = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255; //note: this line calculates 'brightness' of the background color using special formula. 
             return luminance > 0.6 ? Color.Black : Color.White;
         }
 
@@ -260,10 +297,11 @@ namespace First_Principles_Graphics
                 previewPanel.Invalidate();
             }
         }
-
+        
         private void OkButton_Click(object sender, EventArgs e)
         {
             settings.rotateSpeed = (int)rotateSpeedNum.Value;
+            settings.offsetSpeed = (int)OffsetSpeedNum.Value;
             settings.inertiaFrictionFactor = (double)inertiaFrictionFactorNum.Value;
             settings.accelerationAmount = (double)accelerationAmountNum.Value;
             settings.maxSpeed = (double)maxSpeedNum.Value;
@@ -271,6 +309,10 @@ namespace First_Principles_Graphics
             settings.inertiaFrictionEnlargement = (double)inertiaFrictionEnlargementNum.Value;
             settings.accelerationAmountEnlargement = (double)accelerationAmountEnlargementNum.Value;
             settings.maxSpeedEnlargement = (double)maxSpeedEnlargementNum.Value;
+
+            settings.inertiaFrictionOffset = (double)inertiaFrictionOffsetNum.Value;
+            settings.accelerationAmountOffset = (double)accelerationOffsetNum.Value;
+            settings.maxSpeedOffset = (double)maxSpeedOffsetNum.Value;
 
             settings.BackgroundColor = backgroundColorButton.BackColor;
             settings.LineColor = lineColorButton.BackColor;

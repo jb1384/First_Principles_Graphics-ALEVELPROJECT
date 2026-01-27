@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection.Metadata;
@@ -8,6 +9,7 @@ using System.Security.Permissions;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace First_Principles_Graphics
 {
@@ -29,13 +31,17 @@ namespace First_Principles_Graphics
         private int focalLength = 500;
         private double scale = 100;
         private Coords3d offset = new Coords3d(0,0,0); //represents offset vector from center of screen
-
+        private string path_; 
         //faces
         private bool hasFaceInfo;
-        private List<List<int>> faces;
+        private List<int[]> faces;
+
+
         public Wireframe(string path)
         {
             string[] lines;
+            path_ = path;
+            hasFaceInfo = false;
             try
             {
                 lines = File.ReadAllLines(path);
@@ -52,7 +58,7 @@ namespace First_Principles_Graphics
             int lineNum = 1;
             string line = lines[lineNum];
             string[] s;
-
+            faces = new List<int[]>();
             //load vertices
             Coords3d coords;
             while (line != "edge")
@@ -65,14 +71,44 @@ namespace First_Principles_Graphics
                 line = lines[lineNum];
             }
             //load edges
-            for(int i = lineNum+1; i<lines.Length; i++)
+            int[] edge;
+
+            while(line != "face" && lineNum < lines.Length-1)
             {
-                int[] edge = new int[2];
-                line = lines[i];
+                lineNum++;
+                line = lines[lineNum].Trim();
+
+                if (line == "face")
+                    break;
+
                 s = line.Split(',');
-                edge[0] = Convert.ToInt16(s[0]);
-                edge[1] = Convert.ToInt16(s[1]);
+                edge = new int[2] {Convert.ToInt16(s[0]), Convert.ToInt16(s[1])};
                 edges.Add(edge);
+            }
+
+            // get face info is there is any.
+            if (lineNum >= lines.Length || lines[lineNum] != "face")
+            {
+                hasFaceInfo = false;
+                return;
+            }
+            lineNum++;
+            line = lines[lineNum];
+            hasFaceInfo = true;
+            int[] face;
+            while(lineNum < lines.Length)
+            {
+                line = lines[lineNum].Trim();
+                s = line.Split(',');
+                face = new int[s.Length];
+                int i = 0;
+                foreach(string v in s)
+                {
+                    face[i] = Convert.ToInt16(v);
+                    i++;
+                }
+                faces.Add(face);
+                lineNum++;
             }
         }
         public void FormatVerticesToScreenSize(int sizex, int sizey) //this procedure centres the vertices
@@ -259,6 +295,109 @@ namespace First_Principles_Graphics
             offset.UpdateY(yOffset + Y);
         }
 
+        //get vector between two points
+        private double[] GetVector(Coords3d p1, Coords3d p2)
+        {
+            return new double[] {
+        p2.GetX() - p1.GetX(),
+        p2.GetY() - p1.GetY(),
+        p2.GetZ() - p1.GetZ()
+    };
+        }
+
+        private double[] CrossProduct(double[] v1, double[] v2)
+        {
+            return new double[] {
+        v1[1] * v2[2] - v1[2] * v2[1], 
+        v1[2] * v2[0] - v1[0] * v2[2], 
+        v1[0] * v2[1] - v1[1] * v2[0] 
+    };
+        }
+
+        private double DotProduct(double[] v1, double[] v2)
+        {
+            return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+        }
+
+        public List<int[]> GetVisibleEdges(bool isPerspective)
+        {
+            // If no face data exists, fallback to showing all edges (wireframe only)
+            if (!hasFaceInfo || faces.Count == 0) return edges;
+
+            List<int[]> visibleEdges = new List<int[]>();
+
+            // Using a hashset to prevent drawing the same shared edge twice
+            HashSet<string> addedEdges = new HashSet<string>();
+
+            foreach (int[] face in faces)
+            {
+                if (face.Length < 3) continue;
+
+                // 1. Get vertices for the triangle/polygon
+                Coords3d p0 = vertices[face[0]];
+                Coords3d p1 = vertices[face[1]];
+                Coords3d p2 = vertices[face[2]];
+
+                // 2. Calculate two vectors lying on the plane
+                double[] vA = GetVector(p0, p1);
+                double[] vB = GetVector(p0, p2);
+
+                // 3. Calculate Surface Normal (Cross Product)
+                double[] normal = CrossProduct(vA, vB);
+
+                // 4. Calculate View Vector
+                // For Perspective: Vector from Camera to the Point. 
+
+                bool isVisible = false;
+
+                if (isPerspective)
+                {
+                    // Vector from camera to a point on the face (p0)
+                    // Camera is at (0, 0, -FocalLength) in this coordinate space
+                    double[] viewVector = new double[] {
+                p0.GetX(),
+                p0.GetY(),
+                p0.GetZ() + focalLength
+            };
+
+                    // If Dot Product > 0, the face is pointing towards the camera (depending on winding order)
+                    if (DotProduct(normal, viewVector) < 0)
+                    {
+                        isVisible = true;
+                    }
+                }
+                else
+                {
+                    // For Orthographic, we just check the Z component of the normal
+                    // If Z is negative, it points towards the screen (assuming RH coordinates)
+                    if (normal[2] < 0)
+                    {
+                        isVisible = true;
+                    }
+                }
+
+                if (isVisible)  // Add all edges of this face to the visible list
+                {
+                    for (int i = 0; i < face.Length; i++)
+                    {
+                        int start = face[i];
+                        int end = face[(i + 1) % face.Length];
+
+                        //key used to prevent duplicates being added
+                        string key = start < end ? $"{start}-{end}" : $"{end}-{start}";
+
+                        if (!addedEdges.Contains(key))
+                        {
+                            visibleEdges.Add(new int[] { start, end });
+                            addedEdges.Add(key);
+                        }
+                    }
+                }
+            }
+            return visibleEdges;
+        }
+        
+
 
         //getters
         public List<Point> GetProjectedVertices()
@@ -296,6 +435,18 @@ namespace First_Principles_Graphics
         public double getOffsetY()
         {
             return offset.GetY();
+        }
+        public int getFocalLength()
+        {
+            return focalLength;
+        }
+        public string getPath()
+        {
+            return path_;
+        }
+        public bool getHasFaceInfo()
+        {
+            return hasFaceInfo;
         }
     }
 }

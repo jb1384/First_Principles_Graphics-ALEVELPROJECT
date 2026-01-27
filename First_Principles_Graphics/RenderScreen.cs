@@ -10,7 +10,7 @@ namespace First_Principles_Graphics
         const int ysize = 720;
         private ViewerSettings settings = new ViewerSettings();
 
-        //hub variables
+        //hud variables
         private Font hudFont = new Font("Arial", 12);
         private Brush hudBrushColor = Brushes.Black;
 
@@ -18,9 +18,10 @@ namespace First_Principles_Graphics
         private Size size = new Size(xsize, ysize);
         private List<Point> points = new List<Point>();
         private List<int[]> edges = new List<int[]>();
-
+        private List<Tuple<int[], double>> edgesWithDepth;
         //variables for handling dynamic projection technique changing
         private string projectionMode = "Perspective";
+        private bool isPerspective = true;
         private int modeIndex = 0;
         private Func<double, List<Point>> projectionMethod;
         private double zCoefficient = 0;
@@ -30,12 +31,13 @@ namespace First_Principles_Graphics
         private System.Windows.Forms.Timer ChangeSpinAxisTimer;
         private Action<double> SpinAxisProc;
         private Random rnd = new Random();
-        private bool RandomSpinMode = false;
+        private bool randomSpinMode = false;
 
         //variables for handling inertia
         private bool inertiaOn = false;
-        private double velRotX, velRotY, velRotZ, velEnlarge;
+        private double velRotX, velRotY, velRotZ, velEnlarge, velOffsetX, velOffsetY;
 
+        private bool hiddenLineRemoval = false;
         private System.Windows.Forms.Timer inertiaTimer;
 
         public Screen()
@@ -93,7 +95,30 @@ namespace First_Principles_Graphics
             openSettings.Click += new EventHandler(OpenSettingsClick);
             this.Controls.Add(openSettings);
 
+            Button toggleHLR = new Button();
+            toggleHLR.Text = "Hide Lines";
+            toggleHLR.Size = new Size(150, 60);
+            toggleHLR.Location = new Point(1120, 290);
+            toggleHLR.Click += new EventHandler(this.ToggleHiddenLines);
+            this.Controls.Add(toggleHLR);
+
         }
+        private void ToggleHiddenLines(object sender, EventArgs e)
+        {
+            if (model.getHasFaceInfo())
+            {
+                hiddenLineRemoval = !hiddenLineRemoval;
+                ((Button)sender).Text = hiddenLineRemoval ? "Unhide lines" : "Hide lines";
+                
+                RefreshProjection();
+                Redraw();
+            }
+            else
+            {
+                MessageBox.Show("Your wireframe file needs face data for HLR");
+            }
+        }
+
         private void ResetClick(object sender, EventArgs e)
         {
             model.getThetaX().Set(0);
@@ -109,9 +134,30 @@ namespace First_Principles_Graphics
             RefreshProjection();
             Redraw();
         }
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            base.OnFormClosing(e);
+            try
+            {
+                spinTimer?.Stop();
+                spinTimer?.Dispose();
+                ChangeSpinAxisTimer?.Stop();
+                ChangeSpinAxisTimer?.Dispose();
+                inertiaTimer?.Stop();
+                inertiaTimer?.Dispose();
+                System.Diagnostics.Debug.WriteLine("Disposed of resources successfully.");
+            }
+            catch 
+            {
+                System.Diagnostics.Debug.WriteLine("Wireframe closed, but some resources failed to dispose of properly.");
+            }
+
+            hudFont?.Dispose();
+        }
+
         private void OpenSettingsClick(object sender, EventArgs e)
         {
-            SettingsForm sf = new SettingsForm(settings);
+            SettingsForm sf = new SettingsForm(settings, model.getPath());
             if (sf.ShowDialog() == DialogResult.OK)
             {
                 // Refresh drawing using new settings
@@ -127,7 +173,7 @@ namespace First_Principles_Graphics
         {
             inertiaOn = !inertiaOn;
             ((Button)sender).Text = inertiaOn ? "Inertia Off" : "Inertia On";
-            velRotX = velRotY = velRotZ = velEnlarge = 0;
+            velRotX = velRotY = velRotZ = velEnlarge = velOffsetX = velOffsetY = 0;
             if (inertiaOn)
                 inertiaTimer.Start();
             else
@@ -138,7 +184,6 @@ namespace First_Principles_Graphics
         {
 
             bool changed = false;
-            // X rotation velocity
             if (Math.Abs(velRotX) > 0.01)
             {
                 model.getThetaX().Increment(velRotX);
@@ -146,7 +191,6 @@ namespace First_Principles_Graphics
                 changed = true;
             }
 
-            // Y rotation
             if (Math.Abs(velRotY) > 0.01)
             {
                 model.getThetaY().Increment(velRotY);
@@ -154,7 +198,6 @@ namespace First_Principles_Graphics
                 changed = true;
             }
 
-            // Z rotation
             if (Math.Abs(velRotZ) > 0.01)
             {
                 model.getThetaZ().Increment(velRotZ);
@@ -167,6 +210,20 @@ namespace First_Principles_Graphics
                 velEnlarge *= settings.inertiaFrictionEnlargement;
                 changed = true;
             }
+
+            if (Math.Abs(velOffsetX) > 0.01)
+            {
+                model.IncrementXOffset(velOffsetX);
+                velOffsetX *= settings.inertiaFrictionOffset;
+                changed = true;
+            }
+            if (Math.Abs(velOffsetY) > 0.01)
+            {
+                model.IncrementYOffset(velOffsetY);
+                velOffsetY *= settings.inertiaFrictionOffset;
+                changed = true;
+            }
+
 
             if (changed)
             {
@@ -192,6 +249,7 @@ namespace First_Principles_Graphics
                 ChangeSpinAxisTimer.Stop();
 
                 projectionMethod = model.ProjectVerticesPerspective;
+                isPerspective = true;
                 zCoefficient = 0;
                 modeIndex = 0;
                 projectionMode = "perspective";
@@ -210,16 +268,20 @@ namespace First_Principles_Graphics
             switch (newMode)
             {
                 case ("Perspective"):
+                    isPerspective = true;
                     projectionMethod = model.ProjectVerticesPerspective;
                     break;
                 case ("Orthographic"):
+                    isPerspective = false;
                     zCoefficient = 0;
                     projectionMethod = model.ProjectVerticesParallel;
                     break;
                 case ("Cabinet"):
+                    isPerspective = false;
                     zCoefficient = 0.5;
                     break;
                 case ("Cavalier"):
+                    isPerspective = false;
                     zCoefficient = 1;
                     break;
             }
@@ -230,15 +292,17 @@ namespace First_Principles_Graphics
 
         private void SpinRandomly(object sender, EventArgs e)
         {
-            RandomSpinMode = !RandomSpinMode;
-            ((Button)sender).Text = RandomSpinMode ? "Stop Spin" : "Auto-Spin";
-            if(RandomSpinMode)
+            randomSpinMode = !randomSpinMode;
+            ((Button)sender).Text = randomSpinMode ? "Stop Spin" : "Auto-Spin";
+            if(randomSpinMode)
             {
+                inertiaTimer.Stop();
                 spinTimer.Start();
                 ChangeSpinAxisTimer.Start();
             }
             else
             {
+                inertiaTimer.Start();
                 spinTimer.Stop();
                 ChangeSpinAxisTimer.Stop();
             }
@@ -281,8 +345,8 @@ namespace First_Principles_Graphics
                     g.DrawLine(pen, A, B);
                 }
 
-             //draw HUD
-             g.DrawString($"Wireframe Loaded: {model.getName()}",
+                //draw HUD
+                g.DrawString($"Wireframe Loaded: {model.getName()}",
              hudFont,
              hudBrushColor,
              new PointF(10, 10));
@@ -297,30 +361,38 @@ namespace First_Principles_Graphics
              hudBrushColor,
              new PointF(10, 60));
 
-             g.DrawString($"X Angle: {model.getThetaX().getDegreesSimplified()}",
+             g.DrawString($"X Angle: {Math.Abs((int)model.getThetaX().getDegreesSimplified())}",
              hudFont,
              hudBrushColor,
              new PointF(10, 85));
 
-             g.DrawString($"Y Angle: {model.getThetaY().getDegreesSimplified()}",
+             g.DrawString($"Y Angle: {Math.Abs((int)model.getThetaY().getDegreesSimplified())}",
              hudFont,
              hudBrushColor,
              new PointF(10, 110));
 
-             g.DrawString($"Z Angle: {model.getThetaZ().getDegreesSimplified()}",
+             g.DrawString($"Z Angle: {Math.Abs((int)model.getThetaZ().getDegreesSimplified())}",
              hudFont,
              hudBrushColor,
              new PointF(10, 135));
 
-             g.DrawString($"X Offset: {model.getOffsetX()}",
+             g.DrawString($"X Offset: {(int)model.getOffsetX()}",
              hudFont,
              hudBrushColor,
              new PointF(10, 160));
 
-             g.DrawString($"Y Offset: {model.getOffsetY()}",
+             g.DrawString($"Y Offset: {(int)model.getOffsetY()}",
              hudFont,
              hudBrushColor,
              new PointF(10, 185));
+
+             if(isPerspective)
+             {
+                    g.DrawString($"Focal Length: {model.getFocalLength()}",
+                    hudFont,
+                    hudBrushColor,
+                    new PointF(10, 210));
+                }
             }
         }
         private void Redraw()
@@ -329,7 +401,7 @@ namespace First_Principles_Graphics
         }
         private Wireframe LoadCube()
         {
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wireframefiles", "cube.txt");
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wireframefiles", "Platonic", "cube.txt");
             Wireframe cube = new Wireframe(path);
             return cube;
         }
@@ -347,14 +419,23 @@ namespace First_Principles_Graphics
             projectionMethod(zCoefficient); //whatever projection method is being used gets stored in this function
             model.FormatVerticesToScreenSize(xsize, ysize);
             points = model.GetProjectedVertices();
-            edges = model.GetEdges();
+            if (hiddenLineRemoval)
+            {
+                // Pass isPerspective so math knows how to calculate the view vector
+                edges = model.GetVisibleEdges(isPerspective);
+            }
+            else
+            {
+                edges = model.GetEdges();
+            }
+
         }
         private double Accelerate(double velocity, double amount, double limit)
         {
             velocity += amount * (1 - velocity / settings.maxSpeed);
             return Math.Max(Math.Min(velocity, limit), -limit);
         }
-        private void ApplyMovement(ref double velocity, double accel, double limit, Action<double> increment)
+        private void ApplyMovement(ref double velocity, double accel, double limit, Action<double> increment, double speed)
         {
             if (inertiaOn)
             {
@@ -363,7 +444,7 @@ namespace First_Principles_Graphics
             }
             else
             {
-                increment(accel > 0 ? settings.rotateSpeed : -settings.rotateSpeed);
+                increment(accel > 0 ? speed : -speed);
             }
         }
 
@@ -373,30 +454,32 @@ namespace First_Principles_Graphics
             double maxSpeed = settings.maxSpeed;
             double accelerationAmountEnlargement = settings.accelerationAmountEnlargement;
             double maxSpeedEnlargement = settings.maxSpeedEnlargement;
+            double accelerationAmountOffset = settings.accelerationAmountOffset;
+            double maxSpeedOffset = settings.maxSpeedOffset;
+ 
             switch(e.KeyCode)
             {
-                //angles (note to self: ref keyword passes the velrotx by reference, meaning when its changed in function its changed in entire program.
-                case Keys.W: ApplyMovement(ref velRotX, -accelerationAmount, maxSpeed, model.getThetaX().Increment); break;
-                case Keys.S: ApplyMovement(ref velRotX, accelerationAmount, maxSpeed, model.getThetaX().Increment); break;
-                case Keys.A: ApplyMovement(ref velRotY, accelerationAmount, maxSpeed, model.getThetaY().Increment); break;
-                case Keys.D: ApplyMovement(ref velRotY, -accelerationAmount, maxSpeed, model.getThetaY().Increment); break;
-                case Keys.Q: ApplyMovement(ref velRotZ, -accelerationAmount, maxSpeed, model.getThetaZ().Increment); break;
-                case Keys.E: ApplyMovement(ref velRotZ, accelerationAmount, maxSpeed, model.getThetaZ().Increment); break;
+                //angles (note to self: ref keyword passes the velocity by reference, meaning when its changed in function its changed in entire program.
+                case Keys.W: ApplyMovement(ref velRotX, -accelerationAmount, maxSpeed, model.getThetaX().Increment, settings.rotateSpeed); break;
+                case Keys.S: ApplyMovement(ref velRotX, accelerationAmount, maxSpeed, model.getThetaX().Increment, settings.rotateSpeed); break;
+                case Keys.A: ApplyMovement(ref velRotY, accelerationAmount, maxSpeed, model.getThetaY().Increment, settings.rotateSpeed); break;
+                case Keys.D: ApplyMovement(ref velRotY, -accelerationAmount, maxSpeed, model.getThetaY().Increment, settings.rotateSpeed); break;
+                case Keys.Q: ApplyMovement(ref velRotZ, -accelerationAmount, maxSpeed, model.getThetaZ().Increment, settings.rotateSpeed); break;
+                case Keys.E: ApplyMovement(ref velRotZ, accelerationAmount, maxSpeed, model.getThetaZ().Increment, settings.rotateSpeed); break;
 
                 //scale
-                case (Keys.N): ApplyMovement(ref velEnlarge, accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale); break;
-                case (Keys.M): ApplyMovement(ref velEnlarge, -accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale); break;
-
+                case (Keys.N): ApplyMovement(ref velEnlarge, accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale, 5); break;
+                case (Keys.M): ApplyMovement(ref velEnlarge, -accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale, 5); break;
 
                 //focal length
                 case (Keys.C): model.IncrementFocalLength(5); break;
                 case (Keys.V): model.IncrementFocalLength(-5); break;
 
                 //offset
-                case (Keys.D1): model.IncrementYOffset(-1); break;
-                case (Keys.D2): model.IncrementYOffset(1); break;
-                case (Keys.D3): model.IncrementXOffset(1); break;
-                case (Keys.D4): model.IncrementXOffset(-1); break;
+                case (Keys.D1): ApplyMovement(ref velOffsetY, -accelerationAmountOffset, maxSpeedOffset, model.IncrementYOffset, settings.offsetSpeed); break;
+                case (Keys.D2): ApplyMovement(ref velOffsetY, accelerationAmountOffset, maxSpeedOffset, model.IncrementYOffset, settings.offsetSpeed); break;
+                case (Keys.D3): ApplyMovement(ref velOffsetX, accelerationAmountOffset, maxSpeedOffset, model.IncrementXOffset, settings.offsetSpeed); break;
+                case (Keys.D4): ApplyMovement(ref velOffsetX, -accelerationAmountOffset, maxSpeedOffset, model.IncrementXOffset, settings.offsetSpeed); break; 
                 default: break;
             }
             RefreshModel();
@@ -423,8 +506,17 @@ namespace First_Principles_Graphics
             projectionMethod = model.ProjectVerticesPerspective;
             RefreshModel();
             RefreshProjection();
-            System.Diagnostics.Debug.WriteLine("LOADED");
+            System.Diagnostics.Debug.WriteLine("loaded initial wireframe (cube)");
             Redraw();
+        }
+
+        public List<int[]> getCurrentModelEdges()
+        {
+            return edges; 
+        }
+        public List<Point> getCurrentModelVertices()
+        {
+            return points;
         }
     }
 }
