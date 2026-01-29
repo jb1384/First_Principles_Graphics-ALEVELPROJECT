@@ -295,7 +295,6 @@ namespace First_Principles_Graphics
             offset.UpdateY(yOffset + Y);
         }
 
-        //get vector between two points
         private double[] GetVector(Coords3d p1, Coords3d p2)
         {
             return new double[] {
@@ -321,39 +320,39 @@ namespace First_Principles_Graphics
 
         public List<int[]> GetVisibleEdges(bool isPerspective)
         {
-            // If no face data exists, fallback to showing all edges (wireframe only)
+            //if no face data exists, fallback to showing all edges (wireframe only). should not be needed.
             if (!hasFaceInfo || faces.Count == 0) return edges;
 
             List<int[]> visibleEdges = new List<int[]>();
 
-            // Using a hashset to prevent drawing the same shared edge twice
+            //use a hashset to prevent drawing the same shared edge twice
             HashSet<string> addedEdges = new HashSet<string>();
 
             foreach (int[] face in faces)
             {
                 if (face.Length < 3) continue;
 
-                // 1. Get vertices for the triangle/polygon
+                //get vertices for the triangle/polygon
                 Coords3d p0 = vertices[face[0]];
                 Coords3d p1 = vertices[face[1]];
                 Coords3d p2 = vertices[face[2]];
 
-                // 2. Calculate two vectors lying on the plane
+                //calculate two vectors lying on the plane
                 double[] vA = GetVector(p0, p1);
                 double[] vB = GetVector(p0, p2);
 
-                // 3. Calculate Surface Normal (Cross Product)
+                //calculate Surface Normal (Cross Product)
                 double[] normal = CrossProduct(vA, vB);
 
-                // 4. Calculate View Vector
-                // For Perspective: Vector from Camera to the Point. 
+                //calculate view vector
+                //for perspective: vector from Camera to the Point. 
 
                 bool isVisible = false;
 
                 if (isPerspective)
                 {
-                    // Vector from camera to a point on the face (p0)
-                    // Camera is at (0, 0, -FocalLength) in this coordinate space
+                    //vector from camera to a point on the face (p0)
+                    //camera is at (0, 0, -FocalLength) in this coordinate space
                     double[] viewVector = new double[] {
                 p0.GetX(),
                 p0.GetY(),
@@ -368,15 +367,15 @@ namespace First_Principles_Graphics
                 }
                 else
                 {
-                    // For Orthographic, we just check the Z component of the normal
-                    // If Z is negative, it points towards the screen (assuming RH coordinates)
+                    //for orthographic, check the Z component of the normal
+                    //if Z is negative, it points towards the screen
                     if (normal[2] < 0)
                     {
                         isVisible = true;
                     }
                 }
 
-                if (isVisible)  // Add all edges of this face to the visible list
+                if (isVisible)  //add all edges of this face to the visible list
                 {
                     for (int i = 0; i < face.Length; i++)
                     {

@@ -66,7 +66,7 @@ namespace First_Principles_Graphics
             };
             this.Controls.Add(mainPanel);
 
-            // Colors section
+            //colors section
             mainPanel.Controls.Add(CreateSectionLabel("Colors"));
 
             backgroundColorButton = CreateColorButton("Background Color", settings.BackgroundColor, "Background color of viewer", OnBackgroundColorClick);
@@ -74,7 +74,7 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(backgroundColorButton);
             mainPanel.Controls.Add(lineColorButton);
 
-            // Preview panel
+            //preview panel
             Label previewLabel = new Label
             {
                 Text = "Rotation Preview",
@@ -96,7 +96,7 @@ namespace First_Principles_Graphics
             previewPanel.Paint += PreviewPanel_Paint;
             mainPanel.Controls.Add(previewPanel);
 
-            // Normal Rotation section
+            //normal rotation section
             mainPanel.Controls.Add(CreateSectionLabel("Non-Inertia Values"));
             rotateSpeedNum = CreateNumericWithDescription("Rotate Speed", settings.rotateSpeed, 1, 500,
                 "Speed of rotation in degrees per tick", "How fast the wireframe rotates", 0, 1);
@@ -105,7 +105,7 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(OffsetSpeedNum.Parent);
             
 
-            // Inertia Rotation section
+            //inertia rotation section
             mainPanel.Controls.Add(CreateSectionLabel("Inertia Rotation"));
             inertiaFrictionFactorNum = CreateNumericWithDescription("Inertia Friction Factor", (decimal)settings.inertiaFrictionFactor, 0.01M, 1,
                 "Friction slowing rotation", "How quickly rotation slows down", 2, 0.01M);
@@ -117,7 +117,7 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(accelerationAmountNum.Parent);
             mainPanel.Controls.Add(maxSpeedNum.Parent);
 
-            // Inertia Scaling section
+            //inertia scaling section
             mainPanel.Controls.Add(CreateSectionLabel("Inertia Scaling"));
             inertiaFrictionEnlargementNum = CreateNumericWithDescription("Scale Friction", (decimal)settings.inertiaFrictionEnlargement, 0.01M, 1,
                 "Friction on scaling", "How quickly scaling slows down", 2, 0.01M);
@@ -129,7 +129,7 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(accelerationAmountEnlargementNum.Parent);
             mainPanel.Controls.Add(maxSpeedEnlargementNum.Parent);
 
-            // Inertia Offset section
+            //inertia offset section
             mainPanel.Controls.Add(CreateSectionLabel("Inertia Offset"));
             inertiaFrictionOffsetNum = CreateNumericWithDescription("Offset Friction", (decimal)settings.inertiaFrictionOffset, 0.01M, 1,
                 "Friction on offset", "How quickly offset slows down", 2, 0.01M);
@@ -141,7 +141,7 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(accelerationOffsetNum.Parent);
             mainPanel.Controls.Add(maxSpeedOffsetNum.Parent);
 
-            // OK/Cancel buttons
+            //OK/Cancel buttons
             FlowLayoutPanel buttonPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
@@ -228,7 +228,7 @@ namespace First_Principles_Graphics
 
         private Color GetReadableTextColor(Color bg)
         {
-            double luminance = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255; //note: this line calculates 'brightness' of the background color using special formula. 
+            double luminance = (0.299 * bg.R + 0.587 * bg.G + 0.114 * bg.B) / 255; //this line calculates 'brightness' of the background color using special formula. 
             return luminance > 0.6 ? Color.Black : Color.White;
         }
 

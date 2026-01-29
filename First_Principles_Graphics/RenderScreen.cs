@@ -421,7 +421,7 @@ namespace First_Principles_Graphics
             points = model.GetProjectedVertices();
             if (hiddenLineRemoval)
             {
-                // Pass isPerspective so math knows how to calculate the view vector
+                //pass isPerspective so math knows how to calculate the view vector
                 edges = model.GetVisibleEdges(isPerspective);
             }
             else
@@ -432,7 +432,7 @@ namespace First_Principles_Graphics
         }
         private double Accelerate(double velocity, double amount, double limit)
         {
-            velocity += amount * (1 - velocity / settings.maxSpeed);
+            velocity += amount * (1 - Math.Abs(velocity) / settings.maxSpeed);
             return Math.Max(Math.Min(velocity, limit), -limit);
         }
         private void ApplyMovement(ref double velocity, double accel, double limit, Action<double> increment, double speed)
@@ -444,7 +444,7 @@ namespace First_Principles_Graphics
             }
             else
             {
-                increment(accel > 0 ? speed : -speed);
+                increment(speed);
             }
         }
 
@@ -460,11 +460,11 @@ namespace First_Principles_Graphics
             switch(e.KeyCode)
             {
                 //angles (note to self: ref keyword passes the velocity by reference, meaning when its changed in function its changed in entire program.
-                case Keys.W: ApplyMovement(ref velRotX, -accelerationAmount, maxSpeed, model.getThetaX().Increment, settings.rotateSpeed); break;
+                case Keys.W: ApplyMovement(ref velRotX, -accelerationAmount, maxSpeed, model.getThetaX().Increment, -settings.rotateSpeed); break;
                 case Keys.S: ApplyMovement(ref velRotX, accelerationAmount, maxSpeed, model.getThetaX().Increment, settings.rotateSpeed); break;
                 case Keys.A: ApplyMovement(ref velRotY, accelerationAmount, maxSpeed, model.getThetaY().Increment, settings.rotateSpeed); break;
-                case Keys.D: ApplyMovement(ref velRotY, -accelerationAmount, maxSpeed, model.getThetaY().Increment, settings.rotateSpeed); break;
-                case Keys.Q: ApplyMovement(ref velRotZ, -accelerationAmount, maxSpeed, model.getThetaZ().Increment, settings.rotateSpeed); break;
+                case Keys.D: ApplyMovement(ref velRotY, -accelerationAmount, maxSpeed, model.getThetaY().Increment, -settings.rotateSpeed); break;
+                case Keys.Q: ApplyMovement(ref velRotZ, -accelerationAmount, maxSpeed, model.getThetaZ().Increment, -settings.rotateSpeed); break;
                 case Keys.E: ApplyMovement(ref velRotZ, accelerationAmount, maxSpeed, model.getThetaZ().Increment, settings.rotateSpeed); break;
 
                 //scale
@@ -488,7 +488,7 @@ namespace First_Principles_Graphics
         }
         private void Screen_Load(object sender, EventArgs e)
         {
-            // Code to run when the form loads
+            //code to run when the form loads
             spinTimer = new System.Windows.Forms.Timer();
             spinTimer.Interval = 20; 
             spinTimer.Tick += new EventHandler(PerformRandomSpin);

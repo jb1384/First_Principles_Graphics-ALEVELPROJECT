@@ -6,17 +6,11 @@ using System.Threading.Tasks;
 
 namespace First_Principles_Graphics
 {
-    public struct RenderableFace : IComparable<RenderableFace>
+    public struct RenderableFace  
     {
         public Point[] Points;   //projected points
-        public double ZDepth;    // The average Z value of face
-        public Color FaceColor;  // the face color is calculated with light
+        public double ZDepth;    //unused
+        public Color FaceColor;  //unused
 
-        // This allows List.Sort() to work automatically
-        public int CompareTo(RenderableFace other)
-        {
-            // Sort descending (furthest Z first)
-            return other.ZDepth.CompareTo(this.ZDepth);
-        }
     }
 }
