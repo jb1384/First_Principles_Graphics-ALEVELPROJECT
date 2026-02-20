@@ -28,7 +28,6 @@ namespace First_Principles_Graphics
         private NumericUpDown maxSpeedOffsetNum;
 
         private Panel previewPanel;
-        private float previewAngle = 0;
         private ToolTip toolTip;
 
         private Wireframe currentModelDuplicate;
@@ -96,7 +95,7 @@ namespace First_Principles_Graphics
             previewPanel.Paint += PreviewPanel_Paint;
             mainPanel.Controls.Add(previewPanel);
 
-            //normal rotation section
+            //no-inertia section
             mainPanel.Controls.Add(CreateSectionLabel("Non-Inertia Values"));
             rotateSpeedNum = CreateNumericWithDescription("Rotate Speed", settings.rotateSpeed, 1, 500,
                 "Speed of rotation in degrees per tick", "How fast the wireframe rotates", 0, 1);
@@ -141,7 +140,7 @@ namespace First_Principles_Graphics
             mainPanel.Controls.Add(accelerationOffsetNum.Parent);
             mainPanel.Controls.Add(maxSpeedOffsetNum.Parent);
 
-            //OK/Cancel buttons
+            //OK,cancel buttons
             FlowLayoutPanel buttonPanel = new FlowLayoutPanel
             {
                 FlowDirection = FlowDirection.LeftToRight,
@@ -175,14 +174,13 @@ namespace First_Principles_Graphics
         private void StartPreviewTimer()
         {
             System.Windows.Forms.Timer timer = new System.Windows.Forms.Timer { Interval = 50 };
-            //note to self: lambda expression. 
-            timer.Tick += (s, e) =>
-            {
-                previewPanel.Invalidate();
-            };
+            timer.Tick += UpdatePreviewTimer;
             timer.Start();
         }
-
+        private void UpdatePreviewTimer(object sender, EventArgs e)
+        {
+            previewPanel.Invalidate();
+        }
         private void PreviewPanel_Paint(object sender, PaintEventArgs e)
         {
             e.Graphics.Clear(settings.BackgroundColor);

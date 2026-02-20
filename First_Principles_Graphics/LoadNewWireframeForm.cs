@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
-using System.IO; // Required for directory operations
+using System.IO; 
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -22,7 +22,7 @@ namespace First_Principles_Graphics
             this.Text = "Select Model";
             this.Size = new Size(600, 500); 
 
-            // Create the main scrolling panel
+            //create the main scrolling panel
             FlowLayoutPanel mainPanel = new FlowLayoutPanel();
             mainPanel.Dock = DockStyle.Fill;
             mainPanel.AutoScroll = true;
@@ -38,7 +38,7 @@ namespace First_Principles_Graphics
                 Directory.CreateDirectory(rootPath);
             }
 
-            // 1. Load files in the root folder (Uncategorized)
+            //load uncategorized files
             string[] rootFiles = Directory.GetFiles(rootPath, "*.txt");
             if (rootFiles.Length > 0)
             {
@@ -46,7 +46,7 @@ namespace First_Principles_Graphics
                 AddButtonsForFiles(mainPanel, rootFiles);
             }
 
-            // 2. Load files from subdirectories (Categorized)
+            //load categorized files.
             string[] subDirectories = Directory.GetDirectories(rootPath);
             foreach (string dir in subDirectories)
             {
@@ -86,12 +86,12 @@ namespace First_Principles_Graphics
             {
                 string fileName = Path.GetFileNameWithoutExtension(file);
 
-                // Clean up underscores for display
+                //remove underscores for display
                 string displayName = fileName.Replace("_", " ");
 
                 Button fileButton = new Button();
                 fileButton.Text = displayName;
-                fileButton.Tag = file; // Store full path in tag
+                fileButton.Tag = file; //store full path in tag
                 fileButton.AutoSize = true;
                 fileButton.Padding = new Padding(5);
                 fileButton.Margin = new Padding(5);

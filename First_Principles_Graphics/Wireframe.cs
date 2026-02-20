@@ -54,11 +54,13 @@ namespace First_Principles_Graphics
             }
 
             name = lines[0];
+
             //load vertices and edges into respective lists
             int lineNum = 1;
             string line = lines[lineNum];
             string[] s;
             faces = new List<int[]>();
+
             //load vertices
             Coords3d coords;
             while (line != "edge")
@@ -70,6 +72,7 @@ namespace First_Principles_Graphics
                 lineNum++;
                 line = lines[lineNum];
             }
+
             //load edges
             int[] edge;
 
@@ -297,69 +300,73 @@ namespace First_Principles_Graphics
 
         private double[] GetVector(Coords3d p1, Coords3d p2)
         {
-            return new double[] {
-        p2.GetX() - p1.GetX(),
-        p2.GetY() - p1.GetY(),
-        p2.GetZ() - p1.GetZ()
-    };
+            double x = p2.GetX() - p1.GetX();
+            double y = p2.GetY() - p1.GetY();
+            double z = p2.GetZ() - p1.GetZ();
+            double[] vectorBetweenPoints = { x, y, z};
+
+            return vectorBetweenPoints;
         }
 
         private double[] CrossProduct(double[] v1, double[] v2)
         {
-            return new double[] {
-        v1[1] * v2[2] - v1[2] * v2[1], 
-        v1[2] * v2[0] - v1[0] * v2[2], 
-        v1[0] * v2[1] - v1[1] * v2[0] 
-    };
+            double x = v1[1] * v2[2] - v1[2] * v2[1];
+            double y = v1[2] * v2[0] - v1[0] * v2[2];
+            double z = v1[0] * v2[1] - v1[1] * v2[0];
+            double[] crossProduct = { x, y, z };
+
+            return crossProduct;
         }
 
         private double DotProduct(double[] v1, double[] v2)
         {
-            return v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+            return (v1[0] * v2[0]) + (v1[1] * v2[1]) + (v1[2] * v2[2]);
         }
 
         public List<int[]> GetVisibleEdges(bool isPerspective)
         {
-            //if no face data exists, fallback to showing all edges (wireframe only). should not be needed.
+            //if no face data exists, return all edges. should not be needed.
             if (!hasFaceInfo || faces.Count == 0) return edges;
 
             List<int[]> visibleEdges = new List<int[]>();
 
             //use a hashset to prevent drawing the same shared edge twice
             HashSet<string> addedEdges = new HashSet<string>();
-
+            bool isVisible;
+            Coords3d p0;
+            Coords3d p1;
+            Coords3d p2;
             foreach (int[] face in faces)
             {
-                if (face.Length < 3) continue;
+                if (face.Length < 3) //handles lines which are not part of a faces
+                {
+                    isVisible = true;
+                    int start = face[0];
+                    int end = face[1];
+                    visibleEdges.Add(new int[] { start, end });
+                    continue;
+                }
 
-                //get vertices for the triangle/polygon
-                Coords3d p0 = vertices[face[0]];
-                Coords3d p1 = vertices[face[1]];
-                Coords3d p2 = vertices[face[2]];
+                //only 3 vertices are required to define the plane. 
+                p0 = vertices[face[0]];
+                p1 = vertices[face[1]];
+                p2 = vertices[face[2]];
 
-                //calculate two vectors lying on the plane
+                //find the plane by finding 2 vectors on it. 
                 double[] vA = GetVector(p0, p1);
                 double[] vB = GetVector(p0, p2);
 
-                //calculate Surface Normal (Cross Product)
                 double[] normal = CrossProduct(vA, vB);
 
-                //calculate view vector
-                //for perspective: vector from Camera to the Point. 
-
-                bool isVisible = false;
+                //calculate view vector. if perspective, this is vector from camera to point. if parallel, this is (0, 0, 1) 
+                isVisible = false;
 
                 if (isPerspective)
                 {
                     //vector from camera to a point on the face (p0)
-                    //camera is at (0, 0, -FocalLength) in this coordinate space
-                    double[] viewVector = new double[] {
-                p0.GetX(),
-                p0.GetY(),
-                p0.GetZ() + focalLength
-            };
+                    double[] viewVector = new double[] {p0.GetX(), p0.GetY(), p0.GetZ() + focalLength};
 
-                    // If Dot Product > 0, the face is pointing towards the camera (depending on winding order)
+                    //if dot product > 0, the face is pointing towards the camera
                     if (DotProduct(normal, viewVector) < 0)
                     {
                         isVisible = true;
@@ -367,7 +374,7 @@ namespace First_Principles_Graphics
                 }
                 else
                 {
-                    //for orthographic, check the Z component of the normal
+                    //orthographic, check the Z component of the normal
                     //if Z is negative, it points towards the screen
                     if (normal[2] < 0)
                     {

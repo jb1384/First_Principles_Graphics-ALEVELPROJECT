@@ -42,7 +42,6 @@ namespace First_Principles_Graphics
 
         public Screen()
         {
-            //set up size
             this.Size = size;
             this.ClientSize = size;
             this.KeyPreview = true;
@@ -80,7 +79,6 @@ namespace First_Principles_Graphics
             ToggleInertia.Click += new EventHandler(this.ToggleInertia);
             this.Controls.Add(ToggleInertia);
 
-            //menu buttons
             Button ChangeModel = new Button();
             ChangeModel.Text = "Change Model";
             ChangeModel.Size = new Size(150, 60);
@@ -160,7 +158,6 @@ namespace First_Principles_Graphics
             SettingsForm sf = new SettingsForm(settings, model.getPath());
             if (sf.ShowDialog() == DialogResult.OK)
             {
-                // Refresh drawing using new settings
                 ApplySettings();
                 Redraw();
             }
@@ -346,7 +343,7 @@ namespace First_Principles_Graphics
                 }
 
                 //draw HUD
-                g.DrawString($"Wireframe Loaded: {model.getName()}",
+             g.DrawString($"Wireframe Loaded: {model.getName()}",
              hudFont,
              hudBrushColor,
              new PointF(10, 10));
@@ -416,19 +413,17 @@ namespace First_Principles_Graphics
         }
         private void RefreshProjection() //recalcuate all projected points
         {
-            projectionMethod(zCoefficient); //whatever projection method is being used gets stored in this function
+            projectionMethod(zCoefficient); //whatever projection method is being used gets stored in this variable
             model.FormatVerticesToScreenSize(xsize, ysize);
             points = model.GetProjectedVertices();
             if (hiddenLineRemoval)
             {
-                //pass isPerspective so math knows how to calculate the view vector
                 edges = model.GetVisibleEdges(isPerspective);
             }
             else
             {
                 edges = model.GetEdges();
             }
-
         }
         private double Accelerate(double velocity, double amount, double limit)
         {
