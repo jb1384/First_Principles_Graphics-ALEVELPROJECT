@@ -10,6 +10,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using static System.Windows.Forms.LinkLabel;
 
 namespace First_Principles_Graphics
 {
@@ -39,20 +40,25 @@ namespace First_Principles_Graphics
 
         public Wireframe(string path)
         {
-            string[] lines;
+            
             path_ = path;
             hasFaceInfo = false;
             try
             {
-                lines = File.ReadAllLines(path);
+                LoadFileFromPath(path);
             }
             catch(Exception e)
             {
                 MessageBox.Show($"Error Loading Wireframe File: {e}");
-                string fallBackPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wireframefiles", "cube.txt");
-                lines = File.ReadAllLines(fallBackPath);
+                string fallBackPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wireframefiles","Platonic", "Cube.txt");
+                LoadFileFromPath(fallBackPath);
             }
 
+        }
+        private void LoadFileFromPath(string path)
+        {
+            string[] lines;
+            lines = File.ReadAllLines(path);
             name = lines[0];
 
             //load vertices and edges into respective lists
@@ -76,7 +82,7 @@ namespace First_Principles_Graphics
             //load edges
             int[] edge;
 
-            while(line != "face" && lineNum < lines.Length-1)
+            while (line != "face" && lineNum < lines.Length - 1)
             {
                 lineNum++;
                 line = lines[lineNum].Trim();
@@ -85,7 +91,7 @@ namespace First_Principles_Graphics
                     break;
 
                 s = line.Split(',');
-                edge = new int[2] {Convert.ToInt16(s[0]), Convert.ToInt16(s[1])};
+                edge = new int[2] { Convert.ToInt16(s[0]), Convert.ToInt16(s[1]) };
                 edges.Add(edge);
             }
 
@@ -99,13 +105,13 @@ namespace First_Principles_Graphics
             line = lines[lineNum];
             hasFaceInfo = true;
             int[] face;
-            while(lineNum < lines.Length)
+            while (lineNum < lines.Length)
             {
                 line = lines[lineNum].Trim();
                 s = line.Split(',');
                 face = new int[s.Length];
                 int i = 0;
-                foreach(string v in s)
+                foreach (string v in s)
                 {
                     face[i] = Convert.ToInt16(v);
                     i++;

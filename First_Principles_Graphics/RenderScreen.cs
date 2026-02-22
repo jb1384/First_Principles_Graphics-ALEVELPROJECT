@@ -18,7 +18,7 @@ namespace First_Principles_Graphics
         private Size size = new Size(xsize, ysize);
         private List<Point> points = new List<Point>();
         private List<int[]> edges = new List<int[]>();
-        private List<Tuple<int[], double>> edgesWithDepth;
+
         //variables for handling dynamic projection technique changing
         private string projectionMode = "Perspective";
         private bool isPerspective = true;
@@ -464,17 +464,17 @@ namespace First_Principles_Graphics
 
                 //scale
                 case (Keys.N): ApplyMovement(ref velEnlarge, accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale, 5); break;
-                case (Keys.M): ApplyMovement(ref velEnlarge, -accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale, 5); break;
+                case (Keys.M): ApplyMovement(ref velEnlarge, -accelerationAmountEnlargement, maxSpeedEnlargement, model.IncrementScale, -5); break;
 
                 //focal length
                 case (Keys.C): model.IncrementFocalLength(5); break;
                 case (Keys.V): model.IncrementFocalLength(-5); break;
 
                 //offset
-                case (Keys.D1): ApplyMovement(ref velOffsetY, -accelerationAmountOffset, maxSpeedOffset, model.IncrementYOffset, settings.offsetSpeed); break;
+                case (Keys.D1): ApplyMovement(ref velOffsetY, -accelerationAmountOffset, maxSpeedOffset, model.IncrementYOffset, -settings.offsetSpeed); break;
                 case (Keys.D2): ApplyMovement(ref velOffsetY, accelerationAmountOffset, maxSpeedOffset, model.IncrementYOffset, settings.offsetSpeed); break;
                 case (Keys.D3): ApplyMovement(ref velOffsetX, accelerationAmountOffset, maxSpeedOffset, model.IncrementXOffset, settings.offsetSpeed); break;
-                case (Keys.D4): ApplyMovement(ref velOffsetX, -accelerationAmountOffset, maxSpeedOffset, model.IncrementXOffset, settings.offsetSpeed); break; 
+                case (Keys.D4): ApplyMovement(ref velOffsetX, -accelerationAmountOffset, maxSpeedOffset, model.IncrementXOffset, -settings.offsetSpeed); break; 
                 default: break;
             }
             RefreshModel();
