@@ -45,7 +45,7 @@ namespace First_Principles_Graphics
             hasFaceInfo = false;
             try
             {
-                LoadFileFromPath(path);
+                LoadFileFromPath(path_);
             }
             catch(Exception e)
             {

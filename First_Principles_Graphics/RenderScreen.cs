@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Threading.Channels;
 
@@ -428,7 +429,15 @@ namespace First_Principles_Graphics
         private double Accelerate(double velocity, double amount, double limit)
         {
             velocity += amount * (1 - Math.Abs(velocity) / settings.maxSpeed);
-            return Math.Max(Math.Min(velocity, limit), -limit);
+            if(limit < velocity && velocity > 0)
+            {
+                return limit;
+            }
+            else if(velocity < 0 && velocity < -limit)
+            {
+                return -limit;
+            }
+            return velocity;
         }
         private void ApplyMovement(ref double velocity, double accel, double limit, Action<double> increment, double speed)
         {
